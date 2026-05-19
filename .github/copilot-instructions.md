@@ -28,6 +28,7 @@
 - Use query key factory
 - Use queryOptions pattern
 - Mutations invalidate parent list / query
+- Handle Loading and Error states in the UI
 
 ## Forms
 
