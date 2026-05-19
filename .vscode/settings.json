@@ -1,0 +1,5 @@
+{
+  "github.copilot.chat.claudeAgent.enabled": true,
+  "chat.agentFilesLocations": [".github/agents"],
+  "chat.useCustomizationsInParentRepositories": true
+}
