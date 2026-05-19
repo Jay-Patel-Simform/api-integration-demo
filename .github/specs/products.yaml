@@ -1,7 +1,7 @@
 feature: products
 
 routes:
-  - /products:
+  - /products?limit=10&skip=10
   - /products/add
 
 ui:
