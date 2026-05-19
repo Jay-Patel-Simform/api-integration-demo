@@ -1,45 +1,142 @@
 feature: products
+version: "1.0"
+description: Product listing and creation feature
 
 routes:
-  - /products?limit=10&skip=10
-  - /products/add
-
-ui:
-  list: datatable
-  create: modal + form
+  - path: /products
+    page: ProductsList
+    description: List all products with search and pagination
+    component: routes/products/index.tsx
+  - path: /products/add
+    page: AddProduct
+    description: Create new product form
+    component: routes/products/add.tsx
 
 api:
-  queries:
-    - getProducts
-
-  mutations:
-    - addProduct
+  endpoints:
+    getProducts:
+      method: GET
+      path: /products
+      params:
+        - name: skip
+          type: number
+          required: true
+          description: Number of items to skip
+        - name: limit
+          type: number
+          required: true
+          description: Number of items to fetch
+        - name: search
+          type: string
+          required: false
+          description: Search products by title
+      response: ProductsResponse
+    createProduct:
+      method: POST
+      path: /products
+      body: CreateProduct
+      response: Product
 
 forms:
-  ProductForm:
+  AddProductForm:
+    route: /products/add
     fields:
       title:
+        name: title
         type: string
         required: true
+        label: "Product Title"
+        validation: "min 1 character"
       price:
-        type: decimal
+        name: price
+        type: number
         required: true
+        label: "Price ($)"
+        validation: "must be >= 0"
       description:
+        name: description
         type: string
         required: false
+        label: "Description"
+        validation: "optional"
+    validation: CreateProductSchema
+    mutation: useAddProduct
+    onSuccess:
+      redirect: /products
+      message: "Product added successfully"
+
+types:
+  Product:
+    id: string
+    title: string
+    price: number
+    description: string
+    category: string
+    brand: string
+    stock: number
+
+  CreateProduct:
+    title: string (required)
+    price: number (required)
+    description: string (optional)
+
+  ProductsResponse:
+    products: Product[]
+    total: number
+    skip: number
+    limit: number
 
 queryKeys:
-  - products.all
-  - products.byId
+  getProducts:
+    key: ["products"]
+    invalidate: never
+    refetch: on_mount, on_window_focus
 
-mutationKeys:
-  - products.add
-  - products.update
+mutations:
+  addProduct:
+    key: ["products", "add"]
+    invalidates: ["products"]
+    redirects: /products
+    loading_message: "Adding product..."
+    success_message: "Product added successfully"
+    error_message: "Failed to add product"
+
+ui:
+  list:
+    type: datatable
+    columns: [title, brand, category, price, stock]
+    search: true
+    pagination: true
+    pagination_type: skip_limit
+    page_size: 10
+
+  create:
+    type: form
+    fields: [title, price, description]
+    submit_button: "Add Product"
+    cancel_button: "Cancel"
+    validation: controller_pattern
+    errors: field_error_component
+
+states:
+  loading: Show skeleton loaders
+  error: Display error message in card
+  empty: Show "No products found" message
+  creating: Disable submit button, show "Adding..."
+  success: Navigate to /products list
+
+restrictions:
+  - NO detail/edit/delete endpoints
+  - NO pagination beyond skip/limit
+  - NO category filtering
+  - NO sorting
+  - Forms use Controller Pattern ONLY
+  - Forms use FieldError component ONLY
+  - All API calls in service layer ONLY
+  - React Query cache invalidation on mutation
 
 apiResponses:
   getProducts:
-    success:
-      status: 200
-        # Body is now referenced from a separate JSON file for easy editing/copying
-        body:
-          $ref: './responses/getProducts.json'
+    status: 200
+    body:
+      $ref: "./responses/getProducts.json"
