@@ -2,7 +2,9 @@
 
 ## Base
 
-- BaseURL from `src/lib/api.ts` (axios instance `apiClient`).
+- BaseURL from `app/lib/api.ts` (axios instance `apiClient`).
+- **Always import `apiClient` from `~/lib/api`. Never create a new axios instance.**
+- To call an external base URL, pass the full absolute URL directly: `apiClient.post("https://external.api/endpoint", data)` — axios ignores `baseURL` when the URL is absolute.
 - Auth: Bearer token via interceptor.
 
 ## Query Hook Template
@@ -21,8 +23,10 @@ See [templates/mutation-hook.ts](templates/mutation-hook.ts)
 
 ## File Naming
 
-- Hook: use{Resource}{Action}.ts
-- Service: {resource}.service.ts
+- Hook: `use{Resource}{Action}.ts` → `app/features/[feature]/hooks/`
+- API functions: `{feature}.ts` → `app/features/[feature]/api/`
+- Types: `{feature}.ts` → `app/features/[feature]/types/`
+- Each folder has a barrel `index.ts`; the feature root also has an `index.ts`.
 
 ---
 
