@@ -1,68 +1,60 @@
-# Refactoring Patterns for SonarQube Issues
+# Refactoring Patterns
 
-Proven patterns for addressing common SonarQube issues without changing behavior.
+Proven patterns for SonarQube issues. Pick the **simplest** one that solves the problem.
 
 ---
 
-## Pattern 1: Extract Function
+## Quick Reference
 
-**Use For:** S3776 (cognitive complexity), S1541 (function too complex)
+| Pattern                                           | Rules        | Use When                                    |
+| ------------------------------------------------- | ------------ | ------------------------------------------- |
+| [Extract Function](#1-extract-function)           | S3776, S1541 | Function has multiple responsibilities      |
+| [Early Return](#2-early-return)                   | S3776, S134  | Nested ifs / precondition checks            |
+| [Extract Boolean](#3-extract-boolean-variable)    | S1067, S3776 | Complex multi-operator conditions           |
+| [Object Map](#4-object-map)                       | S3776, S1541 | Long switch / if-else chains                |
+| [Named Constant](#5-named-constant)               | S1192, S109  | Value appears 3+ times or has meaning       |
+| [Memoization](#6-memoize-with-usecallbackusememo) | S4143        | Function in useEffect dep / passed to child |
+| [Custom Hook](#7-extract-custom-hook)             | S3776, S4144 | Same stateful logic in multiple components  |
+| [Invert Condition](#8-invert-condition)           | S3776, S134  | Positive nesting can become early exit      |
+| [Component Map](#9-component-map)                 | S3776        | Type-based JSX branching                    |
+| [Array Pipeline](#10-array-pipeline)              | S3776        | Sequential data transformations             |
+| [Nullish Coalescing](#11-nullish-coalescing)      | S4325        | Default values for null/undefined           |
+| [Type Guard](#12-type-guard)                      | S2589        | Repeated `typeof` / `in` checks             |
 
-**When to Apply:**
+---
 
-- Function has multiple responsibilities
-- Code sections can be named meaningfully
-- Logic is reusable elsewhere
+## 1. Extract Function
 
-**Template:**
+**Rules:** S3776, S1541
 
 ```tsx
-// Before
-function largFunction(data: Data) {
-  // Setup logic (10 lines)
-  // Validation logic (15 lines)
-  // Transform logic (20 lines)
-  // API call logic (10 lines)
-  // Response handling (15 lines)
+// ❌ Before — one large function, complexity 28
+function processData(data: Data[], filter: string) {
+  // 70 lines of mixed setup / validation / transform / API / response
 }
 
-// After
-function processData(data: Data) {
-  const validated = validateData(data)
+// ✅ After — coordinator + focused helpers
+function processData(data: Data[]): ProcessedResult {
+  const validated  = validateData(data)
   const transformed = transformData(validated)
-  const result = await sendToAPI(transformed)
+  const result     = sendToAPI(transformed)
   return handleResponse(result)
 }
 
-function validateData(data: Data): ValidData { /* ... */ }
-function transformData(data: ValidData): TransformedData { /* ... */ }
-function sendToAPI(data: TransformedData): Promise<Response> { /* ... */ }
-function handleResponse(result: Response): ProcessedResult { /* ... */ }
+function validateData(data: Data[]): ValidData[]     { /* ... */ }
+function transformData(data: ValidData[]): Payload   { /* ... */ }
+function sendToAPI(data: Payload): Promise<Response> { /* ... */ }
+function handleResponse(r: Response): ProcessedResult { /* ... */ }
 ```
-
-**Benefits:**
-
-- Each function has single responsibility
-- Easier to test
-- Improved readability
-- Reduced complexity
 
 ---
 
-## Pattern 2: Early Return (Guard Clause)
+## 2. Early Return
 
-**Use For:** S3776, S134 (nested depth)
-
-**When to Apply:**
-
-- Multiple nested if statements
-- Error/invalid state checks
-- Precondition validation
-
-**Template:**
+**Rules:** S3776, S134
 
 ```tsx
-// Before - Nested ifs
+// ❌ Before — 3 levels of nesting
 function process(user: User | null) {
   if (user) {
     if (user.verified) {
@@ -73,394 +65,215 @@ function process(user: User | null) {
   }
 }
 
-// After - Early returns
+// ✅ After — flat
 function process(user: User | null) {
-  if (!user) return
+  if (!user)          return
   if (!user.verified) return
-  if (!user.active) return
-
-  // main logic (no nesting!)
-}
-```
-
-**Loop Version:**
-
-```tsx
-// Before
-for (const item of items) {
-  if (item.valid) {
-    if (item.active) {
-      // process
-    }
-  }
+  if (!user.active)   return
+  // main logic
 }
 
-// After
+// Loop variant — use continue
 for (const item of items) {
-  if (!item.valid) continue
+  if (!item.valid)  continue
   if (!item.active) continue
-
-  // process (no nesting!)
+  // process
 }
 ```
 
 ---
 
-## Pattern 3: Extract Boolean Variable
+## 3. Extract Boolean Variable
 
-**Use For:** S1067 (complex expression), S3776 (complexity)
-
-**When to Apply:**
-
-- Complex boolean conditions
-- Multiple operators in if statement
-- Condition used multiple times
-
-**Template:**
+**Rules:** S1067, S3776
 
 ```tsx
-// Before
+// ❌ Before — complex expression inline
 if ((user.role === 'admin' || user.role === 'owner') &&
-    user.verified &&
-    !user.suspended &&
-    (user.level > 10 || user.premium)) {
-  // allow
-}
+    user.verified && !user.suspended &&
+    (user.level > 10 || user.premium)) { }
 
-// After
-const isPrivilegedRole = user.role === 'admin' || user.role === 'owner'
-const isVerifiedActive = user.verified && !user.suspended
-const hasHighStatus = user.level > 10 || user.premium
+// ✅ After — self-documenting variables
+const isPrivilegedRole  = user.role === 'admin' || user.role === 'owner'
+const isVerifiedActive  = user.verified && !user.suspended
+const hasHighStatus     = user.level > 10 || user.premium
 
-if (isPrivilegedRole && isVerifiedActive && hasHighStatus) {
-  // allow
-}
+if (isPrivilegedRole && isVerifiedActive && hasHighStatus) { }
 ```
-
-**Benefits:**
-
-- Self-documenting code
-- Easier to debug
-- Reusable conditions
-- Reduced complexity
 
 ---
 
-## Pattern 4: Object Map (Replace Switch/If-Else Chain)
+## 4. Object Map
 
-**Use For:** S3776, S1541
-
-**When to Apply:**
-
-- Long switch statements
-- Multiple if-else-if chains
-- Type-based branching
-
-**Template:**
+**Rules:** S3776, S1541
 
 ```tsx
-// Before - Switch statement
+// ❌ Before — switch with growing cases
 function getIcon(type: string) {
   switch (type) {
     case 'success': return <CheckIcon />
-    case 'error': return <XIcon />
+    case 'error':   return <XIcon />
     case 'warning': return <AlertIcon />
-    case 'info': return <InfoIcon />
-    default: return <QuestionIcon />
+    default:        return <QuestionIcon />
   }
 }
 
-// After - Object map
+// ✅ After — object map
 const ICON_MAP: Record<string, JSX.Element> = {
   success: <CheckIcon />,
-  error: <XIcon />,
+  error:   <XIcon />,
   warning: <AlertIcon />,
-  info: <InfoIcon />
 }
+const getIcon = (type: string) => ICON_MAP[type] ?? <QuestionIcon />
 
-function getIcon(type: string) {
-  return ICON_MAP[type] ?? <QuestionIcon />
-}
-```
-
-**With Functions:**
-
-```tsx
-// Before
-function calculate(operation: string, a: number, b: number) {
-  if (operation === 'add') return a + b
-  if (operation === 'subtract') return a - b
-  if (operation === 'multiply') return a * b
-  if (operation === 'divide') return b !== 0 ? a / b : 0
-  return 0
-}
-
-// After
-type Operation = (a: number, b: number) => number
-
-const OPERATIONS: Record<string, Operation> = {
-  add: (a, b) => a + b,
+// With functions
+type Op = (a: number, b: number) => number
+const OPERATIONS: Record<string, Op> = {
+  add:      (a, b) => a + b,
   subtract: (a, b) => a - b,
   multiply: (a, b) => a * b,
-  divide: (a, b) => b !== 0 ? a / b : 0
+  divide:   (a, b) => b !== 0 ? a / b : 0,
 }
-
-function calculate(operation: string, a: number, b: number): number {
-  const fn = OPERATIONS[operation]
-  return fn ? fn(a, b) : 0
-}
+const calculate = (op: string, a: number, b: number) => OPERATIONS[op]?.(a, b) ?? 0
 ```
 
 ---
 
-## Pattern 5: Extract Named Constant
+## 5. Named Constant
 
-**Use For:** S1192 (duplicate strings), S109 (magic numbers)
-
-**When to Apply:**
-
-- String/number appears 3+ times
-- Value has business meaning
-- Value might change
-
-**Template:**
+**Rules:** S1192, S109
 
 ```tsx
-// Before
-fetch('https://api.example.com/users')
-setTimeout(callback, 5000)
-if (score > 0.75) { /* pass */ }
+// ❌ Before
+fetch('https://api.example.com/v1/users')
+fetch('https://api.example.com/v1/products')
+const cache = Date.now() + 86400000
+if (score > 0.75) { }
 
-// After
-const API_BASE_URL = 'https://api.example.com'
-const FIVE_SECONDS_MS = 5000
-const PASSING_SCORE_THRESHOLD = 0.75
+// ✅ After
+const API_BASE_URL          = 'https://api.example.com/v1'
+const MS_PER_DAY            = 24 * 60 * 60 * 1000
+const PASSING_SCORE         = 0.75
 
 fetch(`${API_BASE_URL}/users`)
-setTimeout(callback, FIVE_SECONDS_MS)
-if (score > PASSING_SCORE_THRESHOLD) { /* pass */ }
-```
+fetch(`${API_BASE_URL}/products`)
+const cache = Date.now() + MS_PER_DAY
+if (score > PASSING_SCORE) { }
 
-**Grouping Related Constants:**
-
-```tsx
-// Before
-const redTimeout = 3000
-const yellowTimeout = 5000
-const greenTimeout = 10000
-
-// After - Grouped in object
-const TIMEOUT_MS = {
-  RED: 3000,
-  YELLOW: 5000,
-  GREEN: 10000
-} as const
-
-// Usage
-setTimeout(callback, TIMEOUT_MS.RED)
+// Group related constants
+const TIMEOUT_MS = { RED: 3000, YELLOW: 5000, GREEN: 10000 } as const
 ```
 
 ---
 
-## Pattern 6: Memoize with useCallback/useMemo
+## 6. Memoize with useCallback/useMemo
 
-**Use For:** S4143 (hook dependencies)
-
-**When to Apply:**
-
-- Function passed to child component
-- Function used in useEffect dependency
-- Expensive computation
-
-**Template:**
+**Rule:** S4143
 
 ```tsx
-// Before - New function every render
+// ❌ Before — new function reference every render
 function Parent() {
-  const handleClick = (id: string) => {
-    // handle click
-  }
-
+  const handleClick = (id: string) => selectItem(id)
   return <Child onClick={handleClick} />
 }
 
-// After - Memoized callback
+// ✅ After
 function Parent() {
-  const handleClick = useCallback((id: string) => {
-    // handle click
-  }, []) // add dependencies if needed
-
+  const handleClick = useCallback((id: string) => selectItem(id), [])
   return <Child onClick={handleClick} />
 }
-```
 
-**With useMemo:**
-
-```tsx
-// Before - Recalculated every render
+// Expensive computation
 function DataTable({ items }: Props) {
-  const filteredItems = items.filter(item => item.active)
-  const sortedItems = filteredItems.sort((a, b) => a.name.localeCompare(b.name))
-
-  return <Table data={sortedItems} />
-}
-
-// After - Memoized computation
-function DataTable({ items }: Props) {
-  const processedItems = useMemo(() => {
-    const filtered = items.filter(item => item.active)
-    return filtered.sort((a, b) => a.name.localeCompare(b.name))
-  }, [items])
-
+  const processedItems = useMemo(
+    () => items.filter(i => i.active).sort((a, b) => a.name.localeCompare(b.name)),
+    [items]
+  )
   return <Table data={processedItems} />
 }
 ```
 
 ---
 
-## Pattern 7: Extract Custom Hook
+## 7. Extract Custom Hook
 
-**Use For:** S3776, S1541, S4144 (duplicate logic in multiple components)
-
-**When to Apply:**
-
-- Logic used in multiple components
-- Complex stateful logic
-- Side effect management
-
-**Template:**
+**Rules:** S3776, S4144
 
 ```tsx
-// Before - Logic in component
-function UserProfile() {
-  const [user, setUser] = useState<User | null>(null)
+// ❌ Before — stateful logic duplicated across components
+// ✅ After — extracted hook
+
+function useUser(userId: string) {
+  const [user, setUser]     = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
+  const [error, setError]   = useState<Error | null>(null)
 
   useEffect(() => {
-    fetchUser()
+    fetchUser(userId)
       .then(setUser)
       .catch(setError)
       .finally(() => setLoading(false))
-  }, [])
-
-  if (loading) return <Loading />
-  if (error) return <Error error={error} />
-  if (!user) return <NotFound />
-
-  return <div>{user.name}</div>
-}
-
-// After - Extracted hook
-function useUser() {
-  const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
-
-  useEffect(() => {
-    fetchUser()
-      .then(setUser)
-      .catch(setError)
-      .finally(() => setLoading(false))
-  }, [])
+  }, [userId])
 
   return { user, loading, error }
 }
 
-function UserProfile() {
-  const { user, loading, error } = useUser()
-
+function UserProfile({ userId }: { userId: string }) {
+  const { user, loading, error } = useUser(userId)
   if (loading) return <Loading />
-  if (error) return <Error error={error} />
-  if (!user) return <NotFound />
-
+  if (error)   return <Error error={error} />
+  if (!user)   return <NotFound />
   return <div>{user.name}</div>
 }
 ```
 
 ---
 
-## Pattern 8: Invert Condition
+## 8. Invert Condition
 
-**Use For:** S3776, S134 (nested conditions)
-
-**When to Apply:**
-
-- Negative conditions more natural
-- Reduces nesting level
-
-**Template:**
+**Rules:** S3776, S134
 
 ```tsx
-// Before - Nested positive check
+// ❌ Before
 function process(data: Data | null) {
   if (data) {
     if (data.items) {
       if (data.items.length > 0) {
-        // process items
+        // logic
       }
     }
   }
 }
 
-// After - Inverted with early returns
+// ✅ After
 function process(data: Data | null) {
-  if (!data) return
-  if (!data.items) return
+  if (!data)                  return
+  if (!data.items)            return
   if (data.items.length === 0) return
-
-  // process items (no nesting!)
+  // logic — no nesting
 }
 ```
 
 ---
 
-## Pattern 9: Polymorphism (Strategy Pattern)
+## 9. Component Map
 
-**Use For:** S3776, type-based branching
-
-**When to Apply:**
-
-- Type-based behavior
-- Multiple implementations of same interface
-- Growing switch statements
-
-**Template:**
+**Rule:** S3776
 
 ```tsx
-// Before - Type checking and branching
+// ❌ Before — growing if/switch on item.type
 function render(item: Item) {
-  if (item.type === 'text') {
-    return <TextDisplay text={item.content} />
-  }
-  if (item.type === 'image') {
-    return <ImageDisplay src={item.url} />
-  }
-  if (item.type === 'video') {
-    return <VideoPlayer url={item.url} />
-  }
+  if (item.type === 'text')  return <TextDisplay  {...item} />
+  if (item.type === 'image') return <ImageDisplay {...item} />
+  if (item.type === 'video') return <VideoPlayer  {...item} />
   return <UnknownItem />
 }
 
-// After - Component map
-interface BaseItem {
-  type: string
-}
-
-interface TextItem extends BaseItem {
-  type: 'text'
-  content: string
-}
-
-interface ImageItem extends BaseItem {
-  type: 'image'
-  url: string
-}
-
-const COMPONENT_MAP = {
-  text: TextDisplay,
+// ✅ After
+const COMPONENT_MAP: Record<string, React.ComponentType<any>> = {
+  text:  TextDisplay,
   image: ImageDisplay,
-  video: VideoPlayer
+  video: VideoPlayer,
 }
 
 function render(item: Item) {
@@ -471,106 +284,53 @@ function render(item: Item) {
 
 ---
 
-## Pattern 10: Compose Functions
+## 10. Array Pipeline
 
-**Use For:** S3776, sequential transformations
-
-**When to Apply:**
-
-- Data flows through multiple transformations
-- Each step is independent
-- Pipeline pattern
-
-**Template:**
+**Rule:** S3776
 
 ```tsx
-// Before - Nested operations
-function process(data: RawData) {
-  const validated = validate(data)
-  const sanitized = sanitize(validated)
-  const formatted = format(sanitized)
-  const enriched = enrich(formatted)
-  return enriched
-}
-
-// Better - Composition
-const process = compose(
-  validate,
-  sanitize,
-  format,
-  enrich
-)
-
-// Utility
-function compose<T>(...fns: Array<(arg: T) => T>) {
-  return (initialValue: T) =>
-    fns.reduce((value, fn) => fn(value), initialValue)
-}
-```
-
-**Array Pipeline:**
-
-```tsx
-// Before - Multiple intermediate variables
+// ❌ Before — intermediate variables, nested calls
 function processItems(items: Item[]) {
-  const active = items.filter(item => item.active)
-  const validated = active.filter(item => isValid(item))
-  const mapped = validated.map(item => transform(item))
-  const sorted = mapped.sort((a, b) => a.score - b.score)
-  return sorted
+  const active    = items.filter(i => i.active)
+  const validated = active.filter(isValid)
+  const mapped    = validated.map(transform)
+  return mapped.sort((a, b) => a.score - b.score)
 }
 
-// After - Chained pipeline
-function processItems(items: Item[]) {
-  return items
-    .filter(item => item.active)
+// ✅ After — chain
+const processItems = (items: Item[]) =>
+  items
+    .filter(i => i.active)
     .filter(isValid)
     .map(transform)
     .sort((a, b) => a.score - b.score)
-}
 ```
 
 ---
 
-## Pattern 11: Nullish Coalescing
+## 11. Nullish Coalescing
 
-**Use For:** S4325 (optional chaining)
-
-**When to Apply:**
-
-- Default values for null/undefined
-- Avoiding falsy value bugs
-
-**Template:**
+**Rule:** S4325
 
 ```tsx
-// ❌ Wrong - || treats 0, '', false as null
-const count = data?.count || 10 // 0 becomes 10!
-const name = user?.name || 'Guest' // '' becomes 'Guest'!
+// ❌ Wrong — || treats 0 / '' / false as null
+const count = data?.count || 10   // 0 becomes 10!
+const name  = user?.name  || 'Guest'  // '' becomes 'Guest'!
 
-// ✅ Correct - ?? only handles null/undefined
-const count = data?.count ?? 10 // 0 stays 0
-const name = user?.name ?? 'Guest' // '' stays ''
-
-// Chaining
-const value = data?.level1?.level2?.value ?? DEFAULT_VALUE
+// ✅ Correct — ?? only handles null / undefined
+const count = data?.count  ?? 10
+const name  = user?.name   ?? 'Guest'
+const value = a?.b?.c?.val ?? DEFAULT
 ```
 
 ---
 
-## Pattern 12: Type Guard Functions
+## 12. Type Guard
 
-**Use For:** S2589, type narrowing
-
-**When to Apply:**
-
-- Type discrimination needed
-- Multiple type checks
-
-**Template:**
+**Rule:** S2589
 
 ```tsx
-// Before - Type assertions
+// ❌ Before — repeated unsafe assertions
 function process(data: unknown) {
   if (typeof data === 'object' && data !== null && 'id' in data) {
     const item = data as Item
@@ -578,67 +338,21 @@ function process(data: unknown) {
   }
 }
 
-// After - Type guard
+// ✅ After — reusable type guard
 function isItem(data: unknown): data is Item {
-  return (
-    typeof data === 'object' &&
-    data !== null &&
-    'id' in data &&
-    typeof (data as Item).id === 'string'
-  )
+  return typeof data === 'object' && data !== null &&
+         'id' in data && typeof (data as Item).id === 'string'
 }
 
 function process(data: unknown) {
-  if (isItem(data)) {
-    return data.id // TypeScript knows data is Item
-  }
+  if (isItem(data)) return data.id  // TypeScript narrows here
 }
 ```
 
 ---
 
-## Quick Reference
+## Checklist
 
-| Pattern            | SonarQube Rules | Benefit              |
-| ------------------ | --------------- | -------------------- |
-| Extract Function   | S3776, S1541    | Reduces complexity   |
-| Early Return       | S3776, S134     | Reduces nesting      |
-| Extract Boolean    | S1067, S3776    | Clarifies logic      |
-| Object Map         | S3776, S1541    | Eliminates branching |
-| Named Constant     | S1192, S109     | Self-documenting     |
-| Memoization        | S4143           | Optimizes re-renders |
-| Custom Hook        | S3776, S4144    | Reuses logic         |
-| Invert Condition   | S3776, S134     | Reduces nesting      |
-| Polymorphism       | S3776           | Type-safe branching  |
-| Compose            | S3776           | Pipeline clarity     |
-| Nullish Coalescing | S4325           | Handles null safely  |
-| Type Guard         | S2589           | Type-safe checks     |
-
----
-
-## Refactoring Checklist
-
-Before refactoring:
-
-- [ ] Understand the original logic completely
-- [ ] Identify the code smell or issue
-- [ ] Choose appropriate pattern
-- [ ] Plan minimal changes
-
-During refactoring:
-
-- [ ] Apply pattern step by step
-- [ ] Preserve all original behavior
-- [ ] Keep UI unchanged
-- [ ] Maintain type safety
-
-After refactoring:
-
-- [ ] Run tests
-- [ ] Verify TypeScript compiles
-- [ ] Check SonarQube issue resolved
-- [ ] Document changes
-
----
-
-**Remember:** Choose the simplest pattern that solves the problem. Avoid over-engineering. The goal is cleaner code, not clever code.
+**Before:** Understand the logic fully · identify the smell · pick the simplest pattern.  
+**During:** Apply step by step · preserve behavior · keep types · leave UI unchanged.  
+**After:** Run tests · verify TypeScript compiles · confirm SonarQube issue resolved.
