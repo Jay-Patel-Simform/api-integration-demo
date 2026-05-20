@@ -11,6 +11,7 @@ import { QueryClientProvider } from "@tanstack/react-query"
 import type { Route } from "./+types/root"
 import { queryClient } from "~/lib/query-client"
 import "./app.css"
+import { TooltipProvider } from "~/components/ui/tooltip"
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
@@ -33,7 +34,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <TooltipProvider>
+        <Outlet />
+      </TooltipProvider>
     </QueryClientProvider>
   )
 }
