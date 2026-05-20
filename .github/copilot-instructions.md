@@ -45,9 +45,12 @@ src/
 # Rules
 
 - Prefer Shadcn/ui components over custom ones.
-- All forms use React Hook Form + Zod. Follow the `Controller` pattern from `.github/templates/form.tsx` — use `Controller` with `fieldState.invalid`, `data-invalid`, `aria-invalid`, `id`/`htmlFor`, and `FieldGroup` wrappers. Never use `form.register()` directly on inputs.
 - **Never create a custom axios instance.** Always import and use `apiClient` from `~/lib/api`.
-- All data fetching uses TanStack Query. Follow templates in `.github/templates/`.
-- API calls live in `app/features/[feature]/api/[feature].ts` as plain async functions. Hooks import and call them — never inline `fetch`/`axios` calls inside hooks.
+- All forms use React Hook Form + Zod. Follow the `Controller` pattern from `.github/templates/form.tsx` — use `Controller` with `fieldState.invalid`, `data-invalid`, `aria-invalid`, `id`/`htmlFor`, and `FieldGroup` wrappers. Never use `form.register()` directly on inputs.
+- All data fetching uses TanStack Query. Follow templates in `.github/templates/`. Use `useQuery` for GET, `useMutation` for POST/PUT/DELETE. Always implement `isPending` (loading) and `isError` (error) states.
+- API calls live in `app/features/[feature]/api/[feature].ts` as plain async functions. Hooks import and call them — never inline `fetch`/`axios` calls inside hooks or UI components.
+- Error messages must use `axios.isAxiosError` to extract server-side messages from `error.response?.data?.message`.
+- Reuse existing `queryClient` instance from `~/lib/query-client.ts`.
 - Shared reusable components go inside `app/components/shared`.
 - Feature-specific logic must remain inside its respective feature folder.
+- **Use relative API paths only.** Since `apiClient` already has a `baseURL` configured, use relative paths (e.g., `/auth/login`) instead of full endpoint URLs in API calls.
