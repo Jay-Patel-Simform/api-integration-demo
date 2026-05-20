@@ -1,8 +1,8 @@
 ---
-name: API Engineer
+name: ApiIntegration
 description: Implements TanStack Query APIs with loading/error states
-model: Claude Haiku 4.5
-tools: ["code_search", "readfile", "editfile"]
+model: Claude Haiku 4.5 (copilot)
+tools: [search, read, edit]
 ---
 
 # API Patterns

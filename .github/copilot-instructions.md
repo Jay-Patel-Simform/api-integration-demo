@@ -38,7 +38,7 @@ src/
 # Rules
 
 - Prefer Shadcn/ui components over custom ones.
-- All forms use React Hook Form + Zod.
+- All forms use React Hook Form + Zod. (Follow the pattern from the `./templates/form.tsx`)
 - All data fetching uses TanStack Query.
 - Shared reusable components go inside src/components/shared.
 - Feature-specific logic must remain inside its respective feature folder.
