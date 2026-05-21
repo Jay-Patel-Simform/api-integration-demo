@@ -9,7 +9,8 @@ src/
 │
 ├── components/
 │   ├── ui/                     # Shadcn/ui components
-│   └── shared/                 # Shared reusable components
+│   ├── shared/                 # Shared reusable components
+│   └── icons/                  # Icon components with barrel export
 │
 ├── features/
 │   └── [feature-name]/
@@ -52,5 +53,8 @@ src/
 - Error messages must use `axios.isAxiosError` to extract server-side messages from `error.response?.data?.message`.
 - Reuse existing `queryClient` instance from `~/lib/query-client.ts`.
 - Shared reusable components go inside `app/components/shared`.
+- **Icon components:** Extract reusable icons (Spinner, Error, etc.) into `app/components/icons/` with barrel export. Import from `~/components/icons`.
 - Feature-specific logic must remain inside its respective feature folder.
 - **Use relative API paths only.** Since `apiClient` already has a `baseURL` configured, use relative paths (e.g., `/auth/login`) instead of full endpoint URLs in API calls.
+
+See `.github/skills/react-component-refactor/references/listing-page-patterns.md` for detailed patterns on building listing/data table pages.
