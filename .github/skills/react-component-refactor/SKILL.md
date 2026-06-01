@@ -18,18 +18,30 @@ Systematic workflow for decomposing a complex React component without breaking f
 
 ---
 
+## Loading Strategy (Token Efficiency)
+
+> **Progressive Disclosure — follow these rules to minimise token usage:**
+>
+> - **Do NOT read any `references/` file at startup.** Load them only when entering Phase 3 for a specific extraction.
+> - Load **one reference file at a time**, only for the extraction type you are about to implement.
+> - Re-read the Phase 1 signal table if unsure which reference applies — never guess and never load all.
+> - `listing-page-patterns.md` is only loaded if the component is a data-table / listing page.
+
+---
+
 ## Phase 1 — Analyse
 
 Read the **entire file** before extracting anything. Identify:
 
-| Signal                                                  | What to extract                   |
-| ------------------------------------------------------- | --------------------------------- |
-| Self-contained JSX block (header, card, list item)      | → `references/split-component.md` |
-| Data fetching mixed with rendering                      | → `references/split-component.md` |
-| Filter/sort/derive logic, reusable state                | → `references/extract-hook.md`    |
-| Loading/error/empty pattern repeated 2+ places          | → `references/extract-ui.md`      |
-| Shared layout shell (sidebar, page wrapper)             | → `references/extract-ui.md`      |
-| Expensive renders, stable props, unnecessary re-renders | → `references/memoization.md`     |
+| Signal                                                  | Extraction type (used in Phase 3)   |
+| ------------------------------------------------------- | ----------------------------------- |
+| Self-contained JSX block (header, card, list item)      | → Split component                   |
+| Data fetching mixed with rendering                      | → Split component                   |
+| Filter/sort/derive logic, reusable state                | → Extract custom hook               |
+| Loading/error/empty pattern repeated 2+ places          | → Extract shared/utility UI         |
+| Shared layout shell (sidebar, page wrapper)             | → Extract shared/utility UI         |
+| Expensive renders, stable props, unnecessary re-renders | → Add memoization                   |
+| Data-table / listing page                               | → Listing page patterns (load last) |
 
 For each candidate note: which state it needs, which callbacks it calls, whether it consumes Context.
 
@@ -63,23 +75,17 @@ UserProfile/
 
 ## Phase 3 — Implement
 
-Extract **one thing at a time**. Load the relevant reference file, implement, verify, then move to the next.
+Extract **one thing at a time**. For each extraction, **call `read_file` on the matching reference right now — before writing any code.** Load only one file per extraction cycle; do not pre-load the others.
 
-| Task                                                      | Reference                       |
-| --------------------------------------------------------- | ------------------------------- |
-| Split a component or separate container from presentation | `references/split-component.md` |
-| Extract a custom hook                                     | `references/extract-hook.md`    |
-| Extract shared/utility UI                                 | `references/extract-ui.md`      |
-| Add memoization                                           | `references/memoization.md`     |
+| Extraction type                                           | Action before coding                                                  |
+| --------------------------------------------------------- | --------------------------------------------------------------------- |
+| Split a component or separate container from presentation | `read_file references/split-component.md` → follow its steps exactly |
+| Extract a custom hook                                     | `read_file references/extract-hook.md` → follow its steps exactly    |
+| Extract shared/utility UI                                 | `read_file references/extract-ui.md` → follow its steps exactly      |
+| Add memoization                                           | `read_file references/memoization.md` → follow its steps exactly     |
+| Data-table / listing page patterns                        | `read_file references/listing-page-patterns.md` → only if applicable |
 
-Steps per extraction:
-
-1. Create the file in the right location
-2. Define the TypeScript interface first
-3. Copy and adapt JSX — use `~/components/ui/` primitives (`Button`, `Card`, `Spinner`, etc.)
-4. Add JSDoc to all exports
-5. Export from `index.ts`
-6. Update parent: import, replace inline code, delete dead state/functions/imports
+After reading the reference, follow the steps it defines. Do not invent steps from memory.
 
 ---
 
