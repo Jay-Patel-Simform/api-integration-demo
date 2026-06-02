@@ -43,3 +43,8 @@ export const deleteProduct = async (id: number): Promise<Product> => {
   const res = await apiClient.delete<Product>(`/products/${id}`)
   return res.data
 }
+
+export const getProduct = async (id: number): Promise<Product> => {
+  const res = await apiClient.get<Product>(`/products/${id}`)
+  return res.data
+}

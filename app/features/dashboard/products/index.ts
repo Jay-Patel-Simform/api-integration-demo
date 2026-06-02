@@ -1,3 +1,5 @@
 export * from "./components/ProductsColumns"
 export * from "./components/DeleteProductDialog"
+export * from "./components/ProductDetail"
 export * from "./types"
+export * from "./hooks"
